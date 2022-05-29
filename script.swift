@@ -1,45 +1,44 @@
 import Swift
-
 import SwiftShims
 
-struct MyStruct {
-  var x: Int
-  var y: Double
-  var z: Bool?
-  var w: Int16
+public struct MyStruct {
+  public var x: Int
+  public var y: Double
+  public var z: Bool?
+  public var w: Int16
+  
+  // Not iterated over
+  public var myComputed: Int32 {
+    get { 9 }
+    set { x = Int(newValue) }
+  }
 }
 
-//_forEachFieldWithKeyPath(of: MyStruct.self, options: .ignoreUnknown) { name, kp in
-//  print(String(cString: name))
-//  print(kp)
-//  return true
-//}
-
-print("barrier ---------")
-
-//_forEachField(of: MyStruct.self, options: .ignoreUnknown) { name, offset, childType, kind in
-//  print(String(cString: name))
-//  print(offset)
-//  print(childType)
-//  print(kind)
-//  return true
-//}
-
-let type: Any.Type = MyStruct.self
-let options: _EachFieldOptions = []
-let body: (UnsafePointer<CChar>, Int, Any.Type, _MetadataKind) -> Bool = { name, offset, childType, kind in
-  print(String(cString: name))
-  print(offset)
-  print(childType)
-  print(kind)
-  return true
+/// Internal checks.
+///
+/// Internal checks are to be used for checking correctness conditions in the
+/// standard library. They are only enable when the standard library is built
+/// with the build configuration INTERNAL_CHECKS_ENABLED enabled. Otherwise, the
+/// call to this function is a noop.
+@usableFromInline @_transparent
+internal func _internalInvariant(
+  _ condition: @autoclosure () -> Bool, _ message: String = "",
+  file: StaticString = #file, line: UInt = #line
+) {
+#if INTERNAL_CHECKS_ENABLED
+  if !_fastPath(condition()) {
+    fatalError(String(message), file: file, line: line)
+  }
+#endif
 }
 
-typealias Root = MyStruct
-let body2: (UnsafePointer<CChar>, PartialKeyPath<Root>) -> Bool = { name, kp in
-  print(String(cString: name))
-  print(kp)
-  return true
+@usableFromInline @_transparent
+internal func _internalInvariantFailure(
+  _ message: String = "",
+  file: StaticString = #file, line: UInt = #line
+) -> Never {
+  _internalInvariant(false, message, file: file, line: line)
+  Builtin.conditionallyUnreachable()
 }
 
 public struct _EachFieldOptions: OptionSet {
@@ -117,41 +116,31 @@ public enum _MetadataKind: UInt {
   }
 }
 
-func _withClassAsPointer<T: AnyObject>(
-  _ input: T,
-  _ body: (UnsafeMutableRawPointer) -> Void
-) {
-  // Program will crash if I retain/release the pointer, so just leave it
-  // un-retained.
-  let unmanaged = Unmanaged.passUnretained(input)
-  body(unmanaged.toOpaque())
-}
-
 extension AnyKeyPath {
   internal static func _create(
     capacityInBytes bytes: Int,
     initializedBy body: (UnsafeMutableRawBufferPointer) -> Void
   ) -> Self {
-    precondition(bytes > 0 && bytes % 4 == 0,
+    _internalInvariant(bytes > 0 && bytes % 4 == 0,
                  "capacity must be multiple of 4 bytes")
     let result = Builtin.allocWithTailElems_1(self, (bytes/4)._builtinWordValue,
                                               Int32.self)
     
+    // Program will crash if I retain/release the pointer, so just leave it
+    // un-retained.
+    let unmanaged = Unmanaged.passUnretained(result)
+    
     // Workaround for the fact that `_kvcKeyPathStringPtr` is API-internal.
     // Emulates the code: `result._kvcKeyPathStringPtr = nil`
-    _withClassAsPointer(result) { opaque in
-      let propertyType = UnsafePointer<CChar>?.self
-      let bound = opaque.assumingMemoryBound(to: propertyType)
-      bound.pointee = nil
-      print("Original pointer:", opaque)
-    }
+    let opaque = unmanaged.toOpaque()
+    let bound = opaque.assumingMemoryBound(to: UnsafeMutableRawPointer.self)
+    let opaque2 = bound.pointee
+    let bound2 = opaque2.assumingMemoryBound(to: UnsafePointer<CChar>?.self)
+    bound2.pointee = nil
     
     let base = UnsafeMutableRawPointer(Builtin.projectTailElems(result,
                                                                 Int32.self))
-    let bufferPointer = UnsafeMutableRawBufferPointer(start: base, count: bytes)
-    print("Second pointer:", bufferPointer)
-    body(bufferPointer)
-    print("Finished _create")
+    body(UnsafeMutableRawBufferPointer(start: base, count: bytes))
     return result
   }
 }
@@ -203,9 +192,23 @@ internal struct RawKeyPathComponent {
       }
       set {
         let shifted = newValue << Header.discriminatorShift
-        precondition(shifted & Header.discriminatorMask == shifted,
+        _internalInvariant(shifted & Header.discriminatorMask == shifted,
                      "discriminator doesn't fit")
         _value = _value & ~Header.discriminatorMask | shifted
+      }
+    }
+    internal var storedOffsetPayload: UInt32 {
+      get {
+        _internalInvariant(kind == .struct || kind == .class,
+                     "not a stored component")
+        return _value & Header.storedOffsetPayloadMask
+      }
+      set {
+        _internalInvariant(kind == .struct || kind == .class,
+                     "not a stored component")
+        _internalInvariant(newValue & Header.storedOffsetPayloadMask == newValue,
+                     "payload too big")
+        _value = _value & ~Header.storedOffsetPayloadMask | newValue
       }
     }
     internal var payload: UInt32 {
@@ -213,7 +216,7 @@ internal struct RawKeyPathComponent {
         return _value & Header.payloadMask
       }
       set {
-        precondition(newValue & Header.payloadMask == newValue,
+        _internalInvariant(newValue & Header.payloadMask == newValue,
                      "payload too big")
         _value = _value & ~Header.payloadMask | newValue
       }
@@ -248,7 +251,7 @@ internal struct RawKeyPathComponent {
       case (Header.optionalTag, Header.optionalForcePayload):
         return .optionalForce
       default:
-        preconditionFailure("invalid header")
+        _internalInvariantFailure("invalid header")
       }
     }
     
@@ -323,7 +326,7 @@ internal struct RawKeyPathComponent {
       case .class: discriminator = Header.classTag
       }
 
-      precondition(inlineOffset <= Header.maximumOffsetPayload)
+      _internalInvariant(inlineOffset <= Header.maximumOffsetPayload)
       let payload = inlineOffset
         | (mutable ? Header.storedMutableFlag : 0)
       self.init(discriminator: discriminator,
@@ -341,15 +344,25 @@ internal struct RawKeyPathComponent {
     switch header.kind {
     case .struct,
          .class:
-      break // add more code
+      if header.storedOffsetPayload == Header.outOfLineOffsetPayload {
+        let overflowOffset = body.load(as: UInt32.self)
+        buffer.storeBytes(of: overflowOffset, toByteOffset: 4,
+                          as: UInt32.self)
+        componentSize += 4
+      }
+      break
     case .optionalChain,
          .optionalForce,
          .optionalWrap:
       break
     case .computed:
-      break // add more code
+      // Metadata does not have enough information to construct computed
+      // properties. In the Swift stdlib, this case would execute other code.
+      // That code is left out because it is not necessary for this use case.
+      fatalError("Implement support for key paths to computed properties.")
+      break
     case .external:
-      preconditionFailure("should have been instantiated away")
+      _internalInvariantFailure("should have been instantiated away")
     }
     buffer = UnsafeMutableRawBufferPointer(
       start: buffer.baseAddress.unsafelyUnwrapped + componentSize,
@@ -390,14 +403,13 @@ internal struct KeyPathBuffer {
       // Start the components at pointer alignment
       _ = pushRaw(size: RawKeyPathComponent.Header.pointerAlignmentSkew,
              alignment: 4)
-      print("Finished pushHeader")
     }
   }
   
   internal struct Header {
     internal var _value: UInt32
     internal init(size: Int, trivial: Bool, hasReferencePrefix: Bool) {
-      precondition(size <= Int(Header.sizeMask),
+      _internalInvariant(size <= Int(Header.sizeMask),
                    "key path too big")
       _value = UInt32(size)
         | (trivial ? Header.trivialFlag : 0)
@@ -423,7 +435,40 @@ internal enum KeyPathStructOrClass {
   case `struct`, `class`
 }
 
-func my_forEachField() -> Bool {
+@discardableResult
+public func _forEachField(
+  of type: Any.Type,
+  options: _EachFieldOptions = [],
+  body: (UnsafePointer<CChar>, Int, Any.Type, _MetadataKind) -> Bool
+) -> Bool {
+  // Require class type iff `.classType` is included as an option
+  if _isClassType(type) != options.contains(.classType) {
+    return false
+  }
+
+  let childCount = _getRecursiveChildCount(type)
+  for i in 0..<childCount {
+    let offset = _getChildOffset(type, index: i)
+
+    var field = _FieldReflectionMetadata()
+    let childType = _getChildMetadata(type, index: i, fieldMetadata: &field)
+    defer { field.freeFunc?(field.name) }
+    let kind = _MetadataKind(childType)
+
+    if !body(field.name!, offset, childType, kind) {
+      return false
+    }
+  }
+
+  return true
+}
+
+@discardableResult
+public func _forEachFieldWithKeyPath<Root>(
+  of type: Root.Type,
+  options: _EachFieldOptions = [],
+  body: (UnsafePointer<CChar>, PartialKeyPath<Root>) -> Bool
+) -> Bool {
   // Class types not supported because the metadata does not have
   // enough information to construct computed properties.
   if _isClassType(type) != options.contains(.classType) {
@@ -451,12 +496,14 @@ func my_forEachField() -> Bool {
       if !ignoreUnknown { return false }
       continue;
     }
-    func keyPathType<Leaf>(for: Leaf.Type) -> PartialKeyPath<MyStruct>.Type {
-      if field.isVar { return WritableKeyPath<MyStruct, Leaf>.self }
-      return KeyPath<MyStruct, Leaf>.self
+    
+    func keyPathType<Leaf>(for: Leaf.Type) -> PartialKeyPath<Root>.Type {
+      if field.isVar { return WritableKeyPath<Root, Leaf>.self }
+      return KeyPath<Root, Leaf>.self
     }
+    
     let resultSize = MemoryLayout<Int32>.size + MemoryLayout<Int>.size
-    let partialKeyPathType = _openExistential(childType, do: keyPathType)
+    let partialKeyPath = _openExistential(childType, do: keyPathType)
        ._create(capacityInBytes: resultSize) {
       var destBuilder = KeyPathBuffer.Builder($0)
       destBuilder.pushHeader(KeyPathBuffer.Header(
@@ -474,15 +521,15 @@ func my_forEachField() -> Bool {
         endOfReferencePrefix: false)
     }
     
-    
-    
-    
-
-//    if !body(field.name!, offset, childType, kind) {
-//      return false
-//    }
+    if !body(field.name!, partialKeyPath) {
+      return false
+    }
   }
   return true
 }
 
-print(my_forEachField())
+_forEachFieldWithKeyPath(of: MyStruct.self) { name, kp in
+  print("A string:", String(cString: name))
+  print("A kp:", kp)
+  return true
+}
