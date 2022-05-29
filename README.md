@@ -17,7 +17,7 @@ toolchain cannot be used. For example, iPad Swift Playgrounds.
 
 ## How to use
 
-This package reimplemented the contents of the file 
+This package <s>copies</s> reimplements the contents of 
 [ReflectionMirror.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/ReflectionMirror.swift)
 in the Swift Standard Library. It even gates the API-public functions under an
 SPI, although this one can be used on release toolchains. To use this library,
@@ -31,15 +31,16 @@ With an import of `ReflectionMirror`. This Swift module re-exports the Swift
 Standard Library, so you do not need a second import statement for 
 `import Swift`. 
 
-```
+```swift
 @_spi(Reflection) import ReflectionMirror
 ```
 
 You cannot SPI-import both Swift and ReflectionMirror at the same time, because
 that will cause a name collision with the following two functions. This is not
-an issue, because ReflectionMirror.swift contains the entire Reflection SPI of
-the Swift Standard Library (at least for now). Therefore, the ReflectionMirror
-module does as well.
+an issue, because [ReflectionMirror.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/ReflectionMirror.swift) 
+contains the entire Reflection SPI of the Swift Standard Library (at least for 
+now). The ReflectionMirror module does as well because it reimplements that 
+file. Just follow the instructions above and you'll be fine.
 
 ```swift
 func _forEachField(
