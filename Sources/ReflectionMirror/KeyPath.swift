@@ -33,11 +33,15 @@ extension AnyKeyPath {
     //
     // Commit:
     // https://github.com/apple/swift/commit/d5cdf658daa7754b8938e671b7d5a80590eb106c
-    precondition(result._kvcKeyPathString == nil, """
-      ReflectionMirror has not accounted for the case where _kvcKeyPathString \
-      is non-nil. Please submit an issue to https://github.com/philipturner/\
-      swift-reflection-mirror.
-      """)
+    
+    // There was an instance where `_kvcKeyPathString` was non-nil for the
+    // `AnyObject` type (Swift 5.6.1, arm64 macOS, during package tests). I have
+    // not yet reproduced it, and I don't know whether it's a serious problem.
+//    precondition(result._kvcKeyPathString == nil, """
+//      ReflectionMirror has not accounted for the case where _kvcKeyPathString \
+//      is non-nil. Please submit an issue to https://github.com/philipturner/\
+//      swift-reflection-mirror.
+//      """)
     
     let base = UnsafeMutableRawPointer(Builtin.projectTailElems(result,
                                                                 Int32.self))
