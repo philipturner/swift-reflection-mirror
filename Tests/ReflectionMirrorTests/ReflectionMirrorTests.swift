@@ -1,6 +1,5 @@
 import XCTest
 @_spi(Reflection) import ReflectionMirror
-//@testable import ReflectionMirror
 
 final class ReflectionMirrorTests: XCTestCase {
   func testSPISymbolsExist() {
@@ -49,29 +48,31 @@ final class ReflectionMirrorTests: XCTestCase {
     #endif
   }
   
-  #if swift(>=5.4)
+  // TODO: Test whether you can run this on Swift 5.4 using Swift-Colab.
+  #if swift(>=5.5)
   func testStruct() {
     struct Foo {
-      var x: Int
-      var y: String
-      var z: Bool?
-      var w: AnyObject
-      var v: Bar
-      var zx: Any.Type
+      var property1: Int
+      var property2: String
+      var property3: Bool?
+      var property4: AnyObject
+      var property5: Bar
+      var property6: Any.Type
 
-      // Not iterated over
-      var myComputed: Int32 {
-        get { 9 }
-        set { x = Int(newValue) }
+      // Not iterated over.
+      var property7: Int32 {
+        get { Int32(property1) }
+        set { property1 = Int(newValue) }
       }
     }
     
     class Bar {
-      var q: Int
-      var x: AnyObject
-      init(q: Int, x: AnyObject) {
-        self.q = q
-        self.x = x
+      var property1: Int
+      var property2: AnyObject
+      
+      init(property1: Int, property2: AnyObject) {
+        self.property1 = property1
+        self.property2 = property2
       }
     }
     

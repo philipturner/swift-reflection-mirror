@@ -16,12 +16,11 @@ internal func _internalInvariant(
   _ condition: @autoclosure () -> Bool, _ message: String = "",
   file: StaticString = #file, line: UInt = #line
 ) {
-//#if INTERNAL_CHECKS_ENABLED
-  if !condition() {
-//  if !_fastPath(condition()) {
+#if INTERNAL_CHECKS_ENABLED
+  if !_fastPath(condition()) {
     fatalError(message, file: file, line: line)
   }
-//#endif
+#endif
 }
 
 @usableFromInline @_transparent

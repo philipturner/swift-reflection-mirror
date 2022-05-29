@@ -188,8 +188,8 @@ public func _forEachFieldWithKeyPath<Root>(
        ._create(capacityInBytes: resultSize) {
       var destBuilder = KeyPathBuffer.Builder($0)
       destBuilder.pushHeader(KeyPathBuffer.Header(
-        size: 4,///*0*/resultSize - MemoryLayout<Int>.size,
-        trivial: true,//true,
+        size: resultSize - MemoryLayout<Int>.size,
+        trivial: true,
         hasReferencePrefix: false
       ))
       let component = RawKeyPathComponent(
