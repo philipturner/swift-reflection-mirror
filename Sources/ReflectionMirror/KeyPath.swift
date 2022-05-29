@@ -7,6 +7,8 @@
 
 import SwiftShims
 
+let tailAllocOffset = 24
+
 extension AnyKeyPath {
   public func __inspect() {
     func intToString(_ input: UInt32) -> String {
@@ -28,13 +30,28 @@ extension AnyKeyPath {
 //    unmanaged.release()
     
     let opaque = Unmanaged.passRetained(self).toOpaque()
-    let base = UnsafeRawPointer(opaque).advanced(by: 16)
+    let base = UnsafeRawPointer(opaque).advanced(by: tailAllocOffset)
 //    let base = UnsafeRawPointer(Builtin.projectTailElems(self, Int32.self))
     print("base: \(base)")
     let header = base.load(as: KeyPathBuffer.Header.self)._value
     print("header int: \(header)")
-
     print("header: \(intToString(header))")
+    
+    let header2 = base.advanced(by: 4).load(as: KeyPathBuffer.Header.self)._value
+    print("header int2: \(header2)")
+    print("header2: \(intToString(header2))")
+    
+    let header3 = base.advanced(by: 8).load(as: KeyPathBuffer.Header.self)._value
+    print("header int3: \(header3)")
+    print("header3: \(intToString(header3))")
+    
+    let header4 = base.advanced(by: 12).load(as: KeyPathBuffer.Header.self)._value
+    print("header int4: \(header4)")
+    print("header4: \(intToString(header4))")
+    
+    let header5 = base.advanced(by: 16).load(as: KeyPathBuffer.Header.self)._value
+    print("header int5: \(header5)")
+    print("header5: \(intToString(header5))")
     
     // 10000000000000000000000000000100
     
@@ -87,7 +104,7 @@ extension AnyKeyPath {
     print("bound_s: \(String(cString: bound_s.pointee).utf8.map { $0 })")
     unmanaged.release()
 
-    let base = opaque.advanced(by: 16)
+    let base = opaque.advanced(by: tailAllocOffset)
 //    let base = UnsafeMutableRawPointer(Builtin.projectTailElems(result,
 //                                                                Int32.self))
     print("Getting bufptr")
@@ -104,7 +121,7 @@ extension AnyKeyPath {
     defer { _fixLifetime(self) }
     
     let opaque = Unmanaged.passRetained(self).toOpaque()
-    let base = UnsafeRawPointer(opaque).advanced(by: 16)
+    let base = UnsafeRawPointer(opaque).advanced(by: tailAllocOffset)
 //    let base = UnsafeRawPointer(Builtin.projectTailElems(self, Int32.self))
     return try f(KeyPathBuffer(base: base))
   }
@@ -142,7 +159,6 @@ extension AnyKeyPath {
         }
 
         while true {
-          fatalError("Never anticipated comparison getting this far...")
           let (aComponent, aType) = aBuffer.next()
           let (bComponent, bType) = bBuffer.next()
 

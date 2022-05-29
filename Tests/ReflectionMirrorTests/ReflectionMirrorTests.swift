@@ -1,6 +1,6 @@
 import XCTest
-@_spi(Reflection) import Swift
-@testable import ReflectionMirror
+@_spi(Reflection) import ReflectionMirror
+//@testable import ReflectionMirror
 
 final class ReflectionMirrorTests: XCTestCase {
   func testSPISymbolsExist() {
@@ -63,23 +63,39 @@ final class ReflectionMirrorTests: XCTestCase {
       }
     }
     
-    struct MyStruct {
-      var x: Int
-      var y: String
-      var z: Bool?
-      var w: AnyObject
-      var v: MyClass
-      
-      // Not iterated over
-      var myComputed: Int32 {
-        get { 9 }
-        set { x = Int(newValue) }
-      }
-    }
+//    struct MyStruct {
+//      var x: Int
+//      var y: String
+//      var z: Bool?
+//      var w: AnyObject
+//      var v: MyClass
+//      var zx: Any.Type
+//
+//      // Not iterated over
+//      var myComputed: Int32 {
+//        get { 9 }
+//        set { x = Int(newValue) }
+//      }
+//    }
     
-    _forEachFieldWithKeyPath(of: MyStruct.self) { name, kp in
-      print("A string:", String(cString: name))
-      print("A kp:", kp)
+    struct MyStruct {
+      weak var weakObj: TestClass?
+      unowned var unownedObj: TestClass
+      var obj: TestClass
+      var tuple: (Int, Int, Int)
+      var structField: Int
+      var function: (Int) -> (Int)
+      var optionalFunction: (Int) -> (Int)?
+      var enumField: TestEnum
+      var existential: TestExistential
+      var existentialMetatype: Any.Type
+      var metatype: Int.Type
+    }
+    (\MyStruct.obj).__inspect()
+    _forEachFieldWithKeyPath(of: MyStruct.self, options: .ignoreUnknown) { name, kp in
+//      print("A string:", String(cString: name))
+//      print("A kp:", kp)
+      kp.__inspect()
       return true
     }
     
