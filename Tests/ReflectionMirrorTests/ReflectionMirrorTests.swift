@@ -1,8 +1,9 @@
 import XCTest
-@_spi(Reflection) import ReflectionMirror
+@_spi(Reflection) import Swift
+@testable import ReflectionMirror
 
 final class ReflectionMirrorTests: XCTestCase {
-  func testSPISymbolsExist() throws {
+  func testSPISymbolsExist() {
     // This is an example of a functional test case.
     // Use XCTAssert and related functions to verify your tests produce the correct
     // results.
@@ -51,8 +52,9 @@ final class ReflectionMirrorTests: XCTestCase {
     #endif
   }
   
-  func testStruct() throws {
-    class MyClass: NSObject {
+  #if swift(>=5.4)
+  func testStruct()  {
+    class MyClass {
       var q: Int
       var x: AnyObject
       init(q: Int, x: AnyObject) {
@@ -80,5 +82,8 @@ final class ReflectionMirrorTests: XCTestCase {
       print("A kp:", kp)
       return true
     }
+    
+    // TODO: write to the keypaths
   }
+  #endif
 }
