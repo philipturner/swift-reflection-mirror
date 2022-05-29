@@ -7,21 +7,33 @@
 
 import SwiftShims
 
+// A way to emulate the behavior of `Builtin.projectTailElems` without actually
+// calling that function. Treat the class like a pointer to a pointer, then
+// increment the second-level pointer by `tailAllocOffset`. This is used in
+// `AnyKeyPath._create`.
+//
+// On development toolchains, using `Builtin.projectTailElems` causes a compiler
+// crash (see https://github.com/apple/swift/issues/59118 for more info). On
+// release toolchains, it strangely does a 16-byte offset instead of the correct
+// 24-byte offset (why?). I have not tested this on 32-bit platforms, but I
+// assume the 24-byte offset is just 3 pointers.
+internal let tailAllocOffset = 3 * MemoryLayout<Int>.stride
+
 extension AnyKeyPath {
   internal static func _create(
     capacityInBytes bytes: Int,
     initializedBy body: (UnsafeMutableRawBufferPointer) -> Void
   ) -> Self {
     _internalInvariant(bytes > 0 && bytes % 4 == 0,
-                 "capacity must be multiple of 4 bytes")
+                 "capacity must be multiple of 4 bytes \(bytes)")
     let result = Builtin.allocWithTailElems_1(self, (bytes/4)._builtinWordValue,
                                               Int32.self)
-    
+
     // The following line from the Swift stdlib is not implemented. Trying to
     // erase this pointer causes a crash when running Swift package tests:
     //
-    // result._kvcKeyPathStringPtr = nil
-    
+//    result._kvcKeyPathStringPtr = nil
+
     // Also, the docs say it's only used for Foundation overlays. The commit
     // adding the line (linked below) was solely for Objective-C interop. We are
     // not building Foundation here, so there should be no problem with leaving
@@ -33,24 +45,28 @@ extension AnyKeyPath {
     //
     // Commit:
     // https://github.com/apple/swift/commit/d5cdf658daa7754b8938e671b7d5a80590eb106c
-    
+
     // There was an instance where `_kvcKeyPathString` was non-nil for the
     // `AnyObject` type (Swift 5.6.1, arm64 macOS, during package tests). I have
-    // not yet reproduced it, and I don't know whether it's a serious problem.
+    // not reproduced it yet, and I don't know whether it's a serious problem.
 //    precondition(result._kvcKeyPathString == nil, """
 //      ReflectionMirror has not accounted for the case where _kvcKeyPathString \
 //      is non-nil. Please submit an issue to https://github.com/philipturner/\
 //      swift-reflection-mirror.
 //      """)
-    
-    let base = UnsafeMutableRawPointer(Builtin.projectTailElems(result,
-                                                                Int32.self))
+
+    let unmanaged = Unmanaged.passUnretained(result)
+    let base = unmanaged.toOpaque().advanced(by: tailAllocOffset)
+//    let base = UnsafeMutableRawPointer(Builtin.projectTailElems(result,
+//                                                                Int32.self))
     body(UnsafeMutableRawBufferPointer(start: base, count: bytes))
     return result
   }
+
 }
 
 // MARK: Implementation details
+
 internal enum KeyPathComponentKind {
   /// The keypath references an externally-defined property or subscript whose
   /// component describes how to interact with the key path.
@@ -262,8 +278,8 @@ internal struct RawKeyPathComponent {
       break
     case .computed:
       // Metadata does not have enough information to construct computed
-      // properties. In the Swift stdlib, this case would execute other code.
-      // That code is left out because it is not necessary for this use case.
+      // properties. In the Swift stdlib, this case would trigger a large block
+      // of code. That code is left out because it is not necessary.
       fatalError("Implement support for key paths to computed properties.")
       break
     case .external:

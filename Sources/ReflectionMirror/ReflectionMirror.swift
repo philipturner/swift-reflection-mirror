@@ -60,7 +60,7 @@ public enum _MetadataKind: UInt {
   // runtimePrivate = 0x100
   // nonHeap = 0x200
   // nonType = 0x400
-  
+
   case `class` = 0
   case `struct` = 0x200     // 0 | nonHeap
   case `enum` = 0x201       // 1 | nonHeap
@@ -77,7 +77,7 @@ public enum _MetadataKind: UInt {
   case heapGenericLocalVariable = 0x500 // 0 | nonType | runtimePrivate
   case errorObject = 0x501  // 1 | nonType | runtimePrivate
   case unknown = 0xffff
-  
+
   init(_ type: Any.Type) {
     let v = _metadataKind(type)
     if let result = _MetadataKind(rawValue: v) {
@@ -157,7 +157,7 @@ public func _forEachFieldWithKeyPath<Root>(
     return false
   }
   let ignoreUnknown = options.contains(.ignoreUnknown)
-  
+
   let childCount = _getRecursiveChildCount(type)
   for i in 0..<childCount {
     let offset = _getChildOffset(type, index: i)
@@ -178,14 +178,13 @@ public func _forEachFieldWithKeyPath<Root>(
       if !ignoreUnknown { return false }
       continue;
     }
-    
     func keyPathType<Leaf>(for: Leaf.Type) -> PartialKeyPath<Root>.Type {
       if field.isVar { return WritableKeyPath<Root, Leaf>.self }
       return KeyPath<Root, Leaf>.self
     }
-    
     let resultSize = MemoryLayout<Int32>.size + MemoryLayout<Int>.size
-    let partialKeyPath = _openExistential(childType, do: keyPathType)
+    let partialKeyPathExistential = _openExistential(childType, do: keyPathType)
+    let partialKeyPath = partialKeyPathExistential
        ._create(capacityInBytes: resultSize) {
       var destBuilder = KeyPathBuffer.Builder($0)
       destBuilder.pushHeader(KeyPathBuffer.Header(
@@ -202,7 +201,7 @@ public func _forEachFieldWithKeyPath<Root>(
         into: &destBuilder.buffer,
         endOfReferencePrefix: false)
     }
-    
+
     if !body(field.name!, partialKeyPath) {
       return false
     }

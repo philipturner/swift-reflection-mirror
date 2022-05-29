@@ -18,7 +18,7 @@ internal func _internalInvariant(
 ) {
 #if INTERNAL_CHECKS_ENABLED
   if !_fastPath(condition()) {
-    fatalError(String(message), file: file, line: line)
+    fatalError(message, file: file, line: line)
   }
 #endif
 }

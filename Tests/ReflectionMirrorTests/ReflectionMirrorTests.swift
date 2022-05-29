@@ -2,10 +2,7 @@ import XCTest
 @_spi(Reflection) import ReflectionMirror
 
 final class ReflectionMirrorTests: XCTestCase {
-  func testSPISymbolsExist() throws {
-    // This is an example of a functional test case.
-    // Use XCTAssert and related functions to verify your tests produce the correct
-    // results.
+  func testSPISymbolsExist() {
     _ = _EachFieldOptions.self
     _ = _EachFieldOptions.classType
     _ = _EachFieldOptions.ignoreUnknown
@@ -50,35 +47,83 @@ final class ReflectionMirrorTests: XCTestCase {
     _ = _forEachFieldWithKeyPath as Factory<any Hashable>.Function
     #endif
   }
-  
-  func testStruct() throws {
-    class MyClass: NSObject {
-      var q: Int
-      var x: AnyObject
-      init(q: Int, x: AnyObject) {
-        self.q = q
-        self.x = x
+
+  #if swift(>=5.4)
+  func testStruct() {
+    struct Foo {
+      var property1: Int
+      var property2: String
+      let property3: Bool? // immutable property
+      var property4: AnyObject
+      var property5: Bar
+      var property6: Any.Type
+
+      // Not iterated over.
+      var property7: Int32 {
+        get { Int32(property1) }
+        set { property1 = Int(newValue) }
       }
     }
     
-    struct MyStruct {
-      var x: Int
-      var y: String
-      var z: Bool?
-      var w: AnyObject
-      var v: MyClass
+    class Bar {
+      var property1: Int
+      var property2: AnyObject
       
-      // Not iterated over
-      var myComputed: Int32 {
-        get { 9 }
-        set { x = Int(newValue) }
+      init(property1: Int, property2: AnyObject) {
+        self.property1 = property1
+        self.property2 = property2
       }
     }
     
-    _forEachFieldWithKeyPath(of: MyStruct.self) { name, kp in
-      print("A string:", String(cString: name))
-      print("A kp:", kp)
+    var count = 0
+    
+    _forEachFieldWithKeyPath(of: Foo.self) { name, kp in
+      count += 1
+      
+      // This is O(n^2), but it takes so little time that it is permissible.
+      switch String(cString: name) {
+      case "property1":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, Int>)
+      case "property2":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, String>)
+      case "property3":
+        XCTAssertTrue(kp is KeyPath<Foo, Bool?>)
+        XCTAssertFalse(kp is WritableKeyPath<Foo, Bool?>)
+      case "property4":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, AnyObject>)
+      case "property5":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, Bar>)
+      case "property6":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, Any.Type>)
+      default:
+        XCTFail("Encountered unknown property.")
+      }
+      
       return true
     }
+    
+    XCTAssertEqual(count, 6)
   }
+  
+  func testModifyStruct() {
+    struct Foo: Equatable {
+      var x: Int = 1
+      var y: Int = 2
+      var z: Int = 3
+    }
+    
+    var structToModify = Foo()
+    
+    _forEachFieldWithKeyPath(of: Foo.self, options: .ignoreUnknown) { _, kp in
+      guard let writableKeyPath = kp as? WritableKeyPath<Foo, Int> else {
+        XCTFail("Did not get a writable key path.")
+        return false
+      }
+      structToModify[keyPath: writableKeyPath] = 4
+      return true
+    }
+    
+    XCTAssertEqual(structToModify, Foo(x: 4, y: 4, z: 4))
+  }
+  #endif
 }
