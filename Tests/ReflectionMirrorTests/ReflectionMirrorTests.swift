@@ -47,14 +47,13 @@ final class ReflectionMirrorTests: XCTestCase {
     _ = _forEachFieldWithKeyPath as Factory<any Hashable>.Function
     #endif
   }
-  
-  // TODO: Test whether you can run this on Swift 5.4 using Swift-Colab.
-  #if swift(>=5.5)
+
+  #if swift(>=5.4)
   func testStruct() {
     struct Foo {
       var property1: Int
       var property2: String
-      var property3: Bool?
+      let property3: Bool? // immutable property
       var property4: AnyObject
       var property5: Bar
       var property6: Any.Type
@@ -76,13 +75,34 @@ final class ReflectionMirrorTests: XCTestCase {
       }
     }
     
+    var count = 0
+    
     _forEachFieldWithKeyPath(of: Foo.self) { name, kp in
-      print("A string:", String(cString: name))
-      print("A kp:", kp)
-      // Transform this into something that records the strings and ensures
-      // they produce something sensible.
+      count += 1
+      
+      // This is O(n^2), but it takes so little time that it is permissible.
+      switch String(cString: name) {
+      case "property1":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, Int>)
+      case "property2":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, String>)
+      case "property3":
+        XCTAssertTrue(kp is KeyPath<Foo, Bool?>)
+        XCTAssertFalse(kp is WritableKeyPath<Foo, Bool?>)
+      case "property4":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, AnyObject>)
+      case "property5":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, Bar>)
+      case "property6":
+        XCTAssertTrue(kp is WritableKeyPath<Foo, Any.Type>)
+      default:
+        XCTFail("Encountered unknown property.")
+      }
+      
       return true
     }
+    
+    XCTAssertEqual(count, 6)
   }
   
   func testModifyStruct() {
@@ -103,7 +123,7 @@ final class ReflectionMirrorTests: XCTestCase {
       return true
     }
     
-    XCTAssertEqual(structToModify, .init(x: 4, y: 4, z: 4))
+    XCTAssertEqual(structToModify, Foo(x: 4, y: 4, z: 4))
   }
   #endif
 }
