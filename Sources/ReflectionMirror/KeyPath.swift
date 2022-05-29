@@ -7,59 +7,18 @@
 
 import SwiftShims
 
-let tailAllocOffset = 24
+// A way to emulate the behavior of `Builtin.projectTailElems` without actually
+// calling that function. Treat the class like a pointer to a pointer, then
+// increment the second-level pointer by `tailAllocOffset`.
+//
+// On development toolchains, using `Builtin.projectTailElems` causes a compiler
+// crash (see https://github.com/apple/swift/issues/59118 for more info). On
+// release toolchains, it strangely does a 16-byte offset instead of the correct
+// 24-byte offset. I have not tested this on 32-bit platforms, but I assume the
+// 24-byte offset is just 3 pointers.
+let tailAllocOffset = 3 * MemoryLayout<Int>.stride
 
 extension AnyKeyPath {
-  public func __inspect() {
-    func intToString(_ input: UInt32) -> String {
-      var header = input
-      var outputStrArray: [String] = []
-      for _ in 0..<32 {
-        outputStrArray += ["\(header & 1)"]
-        header >>= 1
-      }
-      return outputStrArray.reversed().reduce(into: "") { $0 += $1 }
-    }
-    
-//    let unmanaged = Unmanaged.passRetained(self)
-//    let opaque = unmanaged.toOpaque()
-//    let bound_p = opaque.assumingMemoryBound(to: UnsafeMutableRawPointer.self)
-//    print("bound_p: \(bound_p.pointee)")
-//    let bound_s = opaque.assumingMemoryBound(to: UnsafePointer<CChar>.self)
-//    print("bound_s: \(String(cString: bound_s.pointee).utf8.map { $0 })")
-//    unmanaged.release()
-    
-    let opaque = Unmanaged.passRetained(self).toOpaque()
-    let base = UnsafeRawPointer(opaque).advanced(by: tailAllocOffset)
-//    let base = UnsafeRawPointer(Builtin.projectTailElems(self, Int32.self))
-    print("base: \(base)")
-    let header = base.load(as: KeyPathBuffer.Header.self)._value
-    print("header int: \(header)")
-    print("header: \(intToString(header))")
-    
-    let header2 = base.advanced(by: 4).load(as: KeyPathBuffer.Header.self)._value
-    print("header int2: \(header2)")
-    print("header2: \(intToString(header2))")
-    
-    let header3 = base.advanced(by: 8).load(as: KeyPathBuffer.Header.self)._value
-    print("header int3: \(header3)")
-    print("header3: \(intToString(header3))")
-    
-    let header4 = base.advanced(by: 12).load(as: KeyPathBuffer.Header.self)._value
-    print("header int4: \(header4)")
-    print("header4: \(intToString(header4))")
-    
-    let header5 = base.advanced(by: 16).load(as: KeyPathBuffer.Header.self)._value
-    print("header int5: \(header5)")
-    print("header5: \(intToString(header5))")
-    
-    // 10000000000000000000000000000100
-    
-    let kpb = KeyPathBuffer(base: base)
-    print("kpb: \(kpb)")
-//    kpb.destroy()
-  }
-  
   internal static func _create(
     capacityInBytes bytes: Int,
     initializedBy body: (UnsafeMutableRawBufferPointer) -> Void
@@ -131,13 +90,6 @@ extension AnyKeyPath {
     if a === b {
       return true
     }
-    print("\nComparing:")
-    print("a: \(a)")
-    print("b: \(b)")
-    print()
-    
-    a.__inspect()
-    b.__inspect()
     
     // Short-circuit differently-typed key paths
     if type(of: a) != type(of: b) {

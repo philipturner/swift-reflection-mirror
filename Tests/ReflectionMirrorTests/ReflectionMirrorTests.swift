@@ -4,9 +4,6 @@ import XCTest
 
 final class ReflectionMirrorTests: XCTestCase {
   func testSPISymbolsExist() {
-    // This is an example of a functional test case.
-    // Use XCTAssert and related functions to verify your tests produce the correct
-    // results.
     _ = _EachFieldOptions.self
     _ = _EachFieldOptions.classType
     _ = _EachFieldOptions.ignoreUnknown
@@ -53,8 +50,23 @@ final class ReflectionMirrorTests: XCTestCase {
   }
   
   #if swift(>=5.4)
-  func testStruct()  {
-    class MyClass {
+  func testStruct() {
+    struct Foo {
+      var x: Int
+      var y: String
+      var z: Bool?
+      var w: AnyObject
+      var v: Bar
+      var zx: Any.Type
+
+      // Not iterated over
+      var myComputed: Int32 {
+        get { 9 }
+        set { x = Int(newValue) }
+      }
+    }
+    
+    class Bar {
       var q: Int
       var x: AnyObject
       init(q: Int, x: AnyObject) {
@@ -63,43 +75,34 @@ final class ReflectionMirrorTests: XCTestCase {
       }
     }
     
-//    struct MyStruct {
-//      var x: Int
-//      var y: String
-//      var z: Bool?
-//      var w: AnyObject
-//      var v: MyClass
-//      var zx: Any.Type
-//
-//      // Not iterated over
-//      var myComputed: Int32 {
-//        get { 9 }
-//        set { x = Int(newValue) }
-//      }
-//    }
-    
-    struct MyStruct {
-      weak var weakObj: TestClass?
-      unowned var unownedObj: TestClass
-      var obj: TestClass
-      var tuple: (Int, Int, Int)
-      var structField: Int
-      var function: (Int) -> (Int)
-      var optionalFunction: (Int) -> (Int)?
-      var enumField: TestEnum
-      var existential: TestExistential
-      var existentialMetatype: Any.Type
-      var metatype: Int.Type
+    _forEachFieldWithKeyPath(of: Foo.self) { name, kp in
+      print("A string:", String(cString: name))
+      print("A kp:", kp)
+      // Transform this into something that records the strings and ensures
+      // they produce something sensible.
+      return true
     }
-    (\MyStruct.obj).__inspect()
-    _forEachFieldWithKeyPath(of: MyStruct.self, options: .ignoreUnknown) { name, kp in
-//      print("A string:", String(cString: name))
-//      print("A kp:", kp)
-      kp.__inspect()
+  }
+  
+  func testModifyStruct() {
+    struct Foo: Equatable {
+      var x: Int = 1
+      var y: Int = 2
+      var z: Int = 3
+    }
+    
+    var structToModify = Foo()
+    
+    _forEachFieldWithKeyPath(of: Foo.self, options: .ignoreUnknown) { _, kp in
+      guard let writableKeyPath = kp as? WritableKeyPath<Foo, Int> else {
+        XCTFail("Did not get a writable key path.")
+        return false
+      }
+      structToModify[keyPath: writableKeyPath] = 4
       return true
     }
     
-    // TODO: write to the keypaths
+    XCTAssertEqual(structToModify, .init(x: 4, y: 4, z: 4))
   }
   #endif
 }
