@@ -117,70 +117,63 @@ public enum _MetadataKind: UInt {
   }
 }
 
-//extension AnyKeyPath {
-    func _create2(
-    _ x: AnyKeyPath.Type,
+func _withClassAsPointer<T: AnyObject>(
+  _ input: T,
+  _ body: (UnsafeMutableRawPointer) -> Void
+) {
+  // Program will crash if I retain/release the pointer, so just leave it
+  // un-retained.
+  let unmanaged = Unmanaged.passUnretained(input)
+  body(unmanaged.toOpaque())
+}
+
+extension AnyKeyPath {
+  internal static func _create(
     capacityInBytes bytes: Int,
     initializedBy body: (UnsafeMutableRawBufferPointer) -> Void
-  ) -> Void {
-    print("marker 1")
-    print(bytes)
+  ) -> Self {
     precondition(bytes > 0 && bytes % 4 == 0,
-                 "capacity must be multiple of 4 bytes")
-    print("marker 2")
-    let result = Builtin.allocWithTailElems_1(x, (bytes/4)._builtinWordValue,
-                                              Int32.self)
-//    return result
-//    print("marker 3")
-//    print(result)
-//    print("marker 3.3")
-//
-//    // Find way to set this pointer to `nil` forcefully
-////    result._kvcKeyPathStringPtr = nil
-//    do {
-//      let unmanaged = Unmanaged.passRetained(result)
-//      let opaque = unmanaged.toOpaque()
-//      print(opaque)
-//
-//      let propertyType = UnsafePointer<CChar>?.self
-//      let bound = opaque.assumingMemoryBound(to: propertyType)
-//      print(bound.pointee)
-//      bound.pointee = nil
-//      unmanaged.release()
-//      print(bound.pointee)
-//    }
-////    precondition(result._kvcKeyPathString == nil)
-//    print("marker 3.7")
-////    print(result._kvcKeyPathString)
-//    print("marker 4")
-////
-//    let base = Builtin.projectTailElems(result,
-//                                                                Int32.self)
-////    print("marker 5")
-//    let bodyParam = UnsafeMutableRawBufferPointer(start: base, count: bytes)
-////    body(UnsafeMutableRawBufferPointer(start: base, count: bytes))
-////    print("marker 6")
-//    let output = result
+     "capacity must be multiple of 4 bytes")
+    let result = Builtin.allocWithTailElems_1(
+      self, (bytes/4)._builtinWordValue, Int32.self)
+    
+    // Workaround for the fact that `_kvcKeyPathStringPtr` is API-internal.
+    // Emulates the code: `result._kvcKeyPathStringPtr = nil`
+    _withClassAsPointer(result) { opaque in
+      let propertyType = UnsafePointer<CChar>?.self
+      let bound = opaque.assumingMemoryBound(to: propertyType)
+      bound.pointee = nil
+      print("Original pointer:", opaque)
+    }
+    
+    let base = UnsafeMutableRawPointer(
+      Builtin.projectTailElems(result, Int32.self))
+    let bufferPointer = UnsafeMutableRawBufferPointer(start: base, count: bytes)
+    print("Second pointer:", bufferPointer)
+    body(bufferPointer)
+    print("Finished _create")
+    return result
   }
-//}
+}
 
-//func _create<Root2>(
-//  type: PartialKeyPath<Root2>.Type,
-//  capacityInBytes bytes: Int,
-//  initializedBy body: (UnsafeMutableRawBufferPointer) -> Void
-//) -> PartialKeyPath<Root2> {
-//  precondition(bytes > 0 && bytes % 4 == 0,
-//               "capacity must be multiple of 4 bytes")
-//  let result = Builtin.allocWithTailElems_1(type, (bytes/4)._builtinWordValue,
-//                                            Int32.self)
-//  // Find way to set this pointer to `nil` forcefully
-////  result._kvcKeyPathStringPtr = nil
-//  precondition(result._kvcKeyPathString == nil)
-//  let base = UnsafeMutableRawPointer(Builtin.projectTailElems(result,
-//                                                              Int32.self))
-//  body(UnsafeMutableRawBufferPointer(start: base, count: bytes))
-//  return result
-//}
+internal struct KeyPathBuffer {
+  internal struct Builder {
+    internal var buffer: UnsafeMutableRawBufferPointer
+    internal init(_ buffer: UnsafeMutableRawBufferPointer) {
+      self.buffer = buffer
+    }
+  }
+}
+
+internal struct RawKeyPathComponent {
+  internal struct Header {
+    // The component header is 4 bytes, but may be followed by an aligned
+    // pointer field for some kinds of component, forcing padding.
+    internal static var pointerAlignmentSkew: Int {
+      return MemoryLayout<Int>.size - MemoryLayout<Int32>.size
+    }
+  }
+}
 
 func my_forEachField() -> Bool {
   // Class types not supported because the metadata does not have
@@ -192,7 +185,6 @@ func my_forEachField() -> Bool {
   
   let childCount = _getRecursiveChildCount(type)
   for i in 0..<childCount {
-    print("marker 0")
     let offset = _getChildOffset(type, index: i)
 
     var field = _FieldReflectionMetadata()
@@ -216,18 +208,14 @@ func my_forEachField() -> Bool {
       return KeyPath<MyStruct, Leaf>.self
     }
     let resultSize = MemoryLayout<Int32>.size + MemoryLayout<Int>.size
-    Swift.print("marker 0.5")
-    let partialKeyPathType = _openExistential(childType, do: keyPathType) //as PartialKeyPath<MyStruct>.Type
-//    precondition(resultSize > 0)
-    Swift.print("marker 6.5")
-    let partialKeyPath = _create2(partialKeyPathType, capacityInBytes: resultSize) { _ in
-      Swift.print("marker 7")
-    }
-    Swift.print("marker 7.5")
-//    let partialKeyPath: PartialKeyPath<MyStruct> = _create(
-//      type: partialKeyPathType, capacityInBytes: resultSize) { _ in
-      
-//    }
+    let partialKeyPathType = _openExistential(childType, do: keyPathType)
+      ._create(capacityInBytes: resultSize, initializedBy: { _ in
+        
+      })
+    
+    
+    
+    
 
 //    if !body(field.name!, offset, childType, kind) {
 //      return false
