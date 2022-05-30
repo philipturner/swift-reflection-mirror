@@ -56,7 +56,7 @@ func _forEachFieldWithKeyPath<Root>(
 ) -> Bool
 ```
 
-## Source code borrowed from the Swift Stdlib
+## Source code borrowed from [apple/swift](https://github.com/apple/swift)
 
 - [stdlib/public/core/Assert.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/Assert.swift) (partially)
 - [stdlib/public/core/KeyPath.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/KeyPath.swift) (partially)
