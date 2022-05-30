@@ -35,9 +35,9 @@ Standard Library, so you do not need a second import statement for
 @_spi(Reflection) import ReflectionMirror
 ```
 
-You cannot SPI-import both `Swift` and `ReflectionMirror` at the same time, because
-that will cause a name collision with the following two functions. That is not
-an issue, because [ReflectionMirror.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/ReflectionMirror.swift) 
+You cannot SPI-import both `Swift` and `ReflectionMirror` at the same time on development 
+toolchains, because that will cause a name collision with the following two functions. 
+That is not an issue, because [ReflectionMirror.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/ReflectionMirror.swift) 
 contains the entire Reflection SPI of the Swift Standard Library (at least for 
 now). This package also contains all of the SPI symbols because it reimplements 
 that file. In other words, follow the instructions above and you'll be fine.
