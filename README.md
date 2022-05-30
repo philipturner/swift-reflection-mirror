@@ -61,3 +61,4 @@ func _forEachFieldWithKeyPath<Root>(
 - [stdlib/public/core/Assert.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/Assert.swift) (partially)
 - [stdlib/public/core/KeyPath.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/KeyPath.swift) (partially)
 - [stdlib/public/core/ReflectionMirror.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/ReflectionMirror.swift)
+- [test/stdlib/ForEachField.swift](https://github.com/apple/swift/blob/main/test/stdlib/ForEachField.swift) - Tests/ForEachField
