@@ -55,3 +55,9 @@ func _forEachFieldWithKeyPath<Root>(
   body: (UnsafePointer<CChar>, PartialKeyPath<Root>) -> Bool
 ) -> Bool
 ```
+
+## "Reimplemented" files of the Swift Stdlib
+
+- [stdlib/public/core/Assert.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/Assert.swift) (partially)
+- [stdlib/public/core/KeyPath.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/KeyPath.swift) (partially)
+- [stdlib/public/core/ReflectionMirror.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/ReflectionMirror.swift)
