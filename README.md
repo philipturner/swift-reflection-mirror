@@ -62,3 +62,8 @@ func _forEachFieldWithKeyPath<Root>(
 - [stdlib/public/core/KeyPath.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/KeyPath.swift) (partially)
 - [stdlib/public/core/ReflectionMirror.swift](https://github.com/apple/swift/blob/main/stdlib/public/core/ReflectionMirror.swift)
 - [test/stdlib/ForEachField.swift](https://github.com/apple/swift/blob/main/test/stdlib/ForEachField.swift)
+
+## Source code borrowed from [s4tf/s4tf](https://github.com/s4tf/s4tf)
+
+- [Sources/TensorFlow/Core/KeyPathIterable.swift](https://github.com/s4tf/s4tf/blob/main/Sources/TensorFlow/Core/KeyPathIterable.swift) (for testing purposes inside the SwiftPM tests)
+- [Tests/TensorFlowTests/KeyPathIterableTests.swift](https://github.com/s4tf/s4tf/blob/main/Tests/TensorFlowTests/KeyPathIterableTests.swift)
