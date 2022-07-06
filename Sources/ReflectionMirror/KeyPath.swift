@@ -19,6 +19,12 @@ import SwiftShims
 // assume the 24-byte offset is just 3 pointers.
 internal let tailAllocOffset = 3 * MemoryLayout<Int>.stride
 
+// Workaround for the fact that `_kvcKeyPathStringPtr` is internal to the Swift
+// standard library.
+fileprivate class AnyKeyPathFaux {
+  final var _kvcKeyPathStringPtr: UnsafePointer<CChar>?
+}
+
 extension AnyKeyPath {
   internal static func _create(
     capacityInBytes bytes: Int,
@@ -28,37 +34,15 @@ extension AnyKeyPath {
                  "capacity must be multiple of 4 bytes \(bytes)")
     let result = Builtin.allocWithTailElems_1(self, (bytes/4)._builtinWordValue,
                                               Int32.self)
-
-    // The following line from the Swift stdlib is not implemented. Trying to
-    // erase this pointer causes a crash when running Swift package tests:
-    //
+    let unmanaged = Unmanaged.passUnretained(result).toOpaque()
+    
 //    result._kvcKeyPathStringPtr = nil
-
-    // Also, the docs say it's only used for Foundation overlays. The commit
-    // adding the line (linked below) was solely for Objective-C interop. We are
-    // not building Foundation here, so there should be no problem with leaving
-    // `_kvcKeyPathStringPtr` as non-`nil`.
-    //
-    // Doc comment for `_kvcKeyPathString`:
-    // // SPI for the Foundation overlay to allow interop with KVC keypath-based
-    // // APIs.
-    //
-    // Commit:
-    // https://github.com/apple/swift/commit/d5cdf658daa7754b8938e671b7d5a80590eb106c
-
-    // There was an instance where `_kvcKeyPathString` was non-nil for the
-    // `AnyObject` type (Swift 5.6.1, arm64 macOS, during package tests). I have
-    // not reproduced it yet, and I don't know whether it's a serious problem.
-//    precondition(result._kvcKeyPathString == nil, """
-//      ReflectionMirror has not accounted for the case where _kvcKeyPathString \
-//      is non-nil. Please submit an issue to https://github.com/philipturner/\
-//      swift-reflection-mirror.
-//      """)
-
-    let unmanaged = Unmanaged.passUnretained(result)
-    let base = unmanaged.toOpaque().advanced(by: tailAllocOffset)
+    let unmanagedFaux = Unmanaged<AnyKeyPathFaux>.fromOpaque(unmanaged)
+    unmanagedFaux.takeUnretainedValue()._kvcKeyPathStringPtr = nil
+    
 //    let base = UnsafeMutableRawPointer(Builtin.projectTailElems(result,
 //                                                                Int32.self))
+    let base = unmanaged.advanced(by: tailAllocOffset)
     body(UnsafeMutableRawBufferPointer(start: base, count: bytes))
     return result
   }
